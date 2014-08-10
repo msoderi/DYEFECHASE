@@ -28,4 +28,42 @@ For executing the script multiple times automatically, you could launch the prov
 Starting point software is tested under UNIX environment, using a MySql database.
 
 Starting point software is effectively used at now by Synd.it, an Italian project where RSS, ATOM and RDF channels are discovered (Diefechase), and parsed to get news made available to common users via a PHP website. Channel parsing code, and presentation website, are not part of this project.
- 
+
+Quick start
+-----------
+
+1. Edit PHP script by writing down database connection information where requested.
+
+2. Create database tables using provided diefechase.sql script.
+
+3. Create the folder structure as follows:
+
+project root folder (give it a name of your choice)
+|
+----> diefechase.php [file]
+|
+----> diefechase.sh [file]
+|
+----> cwebsites [file]
+|
+----> commands [folder]
+|     |
+|     ----> [ create this folder but leave it empty at setup, you will add files to force execution termination in the future if needed ]
+|
+----> tmp [folder]
+|     |
+|     ----> channelsd [folder]
+|           |
+|           ----> fetchedpage [folder]
+|                 |
+|                 ----> [ create this folder but leave it empty at setup, script will populate it during execution ]
+|
+----> log [ folder ]
+      |
+      ----> channelsd [ folder]
+            |
+            ----> [create this folder but leave it empty at setup, script will populate it during execution ]
+
+4. Populate cwebsites input text file, by writing URLs where the script should search for RSS, ATOM and RDF channels. URLs have to be written one per line. The script will search five level depth starting from each of the provided URLs.
+
+5. Launch search. If you operate under a UNIX environment, you could launch, as an example, "nohup sh diefechase.sh &> /dev/null &" 

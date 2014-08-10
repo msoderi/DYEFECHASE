@@ -1,10 +1,19 @@
 <?php
-// casalgrasso.cn ha qualche problema
+
+// Config
+
+$dbconn_hostname = "write down database hostname here";
+$dbconn_username = "write down username for database connection here";
+$dbconn_password = "write down password for database connection here";
+$dbconn_dbname = "write down database name here";
+
+// Mandatory timezone
+
 date_default_timezone_set("Europe/Rome");
 
-// dbInitNewWebsites();
-
-// Se c'e' un comando di stop, mi fermo.
+// If requested, execution terminates.
+// To request termination, create an empty file at the relative position commands/stop_channelsd.
+// Note: this way, not only PHP script, but even shell script execution terminates.
 
 if(file_exists("commands/stop_channelsd")) 
 {
@@ -13,23 +22,9 @@ if(file_exists("commands/stop_channelsd"))
 	exit(0);
 }
 
-// Altrimenti faccio quello che devo fare sul singolo sito che si trova in testa ai cwebsites.
-
-// Recuperavo l'elenco dei previousLinks ereditati dai precedenti siti visitati. 
-// Ora non serve piu' perche' i previousLinks li tengo tutti sul database e quando li voglio li leggo da li',
-// senza piu' riempire l'array.
-// $newWebsites = array();
-// if(file_exists("tmp/channelsd/new_websites")) $newWebsites = explode("\n",file_get_contents("tmp/channelsd/new_websites"));
-
-$seedsCount = 0;
-
-// Monitor variables
-$monitorDownloads = 0;
-$monitorSkipped = 0;
-$monitorChannels = 0;
-$monitorExetime = 0;
-
-// Recupero l'indirizzo del sito in cui devo andare a cercare i canali
+// Get URL at the first line of input text file named cwebsites, located where the PHP script also is.
+// This script will search for RSS, ATOM and RDF channels starting from that URL.
+// If the input text file is not available, execution terminates.
 
 $websitesfile = fopen("cwebsites","r");
 $website = trim(fgets($websitesfile));
@@ -46,31 +41,29 @@ $canonicWebsiteAddress = $website;
 
 exec("sed -i 1d cwebsites");
 
-$start = time();
+// Some initializations
 
+$seedsCount = 0;
+$monitorDownloads = 0;
+$monitorSkipped = 0;
+$monitorChannels = 0;
+$monitorExetime = 0;
+
+$start = time();
 mylog($website, date("d/m/Y H:i:s")." [INFO] Start searching channels.\n");
 
-// Inizializzo l'array dei canali trovati
 $channels = array();
 
-// Inizializzo previousLevel con i websites, uno strattagemma per ignorare link verso siti che sarebbero comunque esplorati successivamente.
-// Inizializzo anche pages e interesintLinks che hanno piu' o meno lo stesso scopo.
-// In realta' siccome i previousLinks si tengono sul database, vorra' dire che nella tabella dei previous links ci saranno come prima cosa gli 
-// swebsites, pero' qui non e' piu' necessario fare questo riempimento dell'array dei previousLinks, dato che poi per sapere se un link e' in 
-// array si andra' sempre a leggere da database, e non dall'array previousLinks. Anche seedsCount non serve piu', perche' l'unico scopo della
-// variabile era quello di non far esplodere la dimensione dell'array previousLinks, destinato a cadere in disuso.
-// if(isset($previousLevel)) unset($previousLevel); $previousLevel = explode("\n",file_get_contents("swebsites")); array_walk($previousLevel, "trimAll"); $seedsCount = count($previousLevel);
-// if(0 < count($newWebsites)) $previousLevel = array_merge($previousLevel, $newWebsites);
 mylog($website, date("d/m/Y H:i:s")." [INFO] Initializing previous level.\n");
 dbInitPreviousLevel();
-//if(isset($pages)) unset($pages); $pages = array();
+
 mylog($website, date("d/m/Y H:i:s")." [INFO] Initializing pages.\n");
 dbInitPages();
-//if(isset($interestingLinks)) unset($interestingLinks); $interestingLinks = array();
+
 mylog($website, date("d/m/Y H:i:s")." [INFO] Initializing interesting links.\n");
 dbInitInterestingLinks();
 
-// Primo livello (homepage)
+// Searching at depth 1...
 
 mylog($website, date("d/m/Y H:i:s")." [INFO] Starting level 1.\n");
 
@@ -78,7 +71,6 @@ if(isset($level1)) unset($level1); $level1 = array();
 
 mylog($website, date("d/m/Y H:i:s")." INFO Downloading from $website\n");
 $actualWebsite = download($website,"tmp/channelsd/fetchedpage"); $website = $actualWebsite;
-// if(false === $actualWebsite) echo("Unable to download\n"); else echo("Successfully downloaded.\n"); // debug
 
 if(!$website) 
 {
@@ -154,21 +146,7 @@ foreach($level1 as $link)
 
        if(false === stripos($link, $website) && !dbIsInterestingLink($link))
        {
-                /*
-		if
-		(
-			(!in_array(substr($link,0,strpos($link,"/",8))."/", $newWebsites)) &&
-                        (!in_array(str_replace("http://","http://www.",substr($link,0,strpos($link,"/",8))."/"), $newWebsites)) &&
-			(!in_array(str_replace("https://","https://www.",substr($link,0,strpos($link,"/",8))."/"), $newWebsites)) &&
-                        (!in_array(str_replace("www.","",substr($link,0,strpos($link,"/",8))."/"), $newWebsites))
-		
-)
-	        {
-			$newWebsites[] = substr($link,0,strpos($link,"/",8))."/";
-			if(4000 < count($newWebsites)) $newWebsites = array_slice($newWebsites, 1);
-	        }
-		*/
-
+                
 		mylog($website, date("d/m/Y H:i:s")." [INFO] Adding link to new websites.\n");
 
                 dbAddToNewWebsites(substr($link,0,strpos($link,"/",8))."/");
@@ -184,28 +162,12 @@ foreach($level1 as $link)
 
 mylog($website, date("d/m/Y H:i:s")." [INFO] Inspection completed.\n");
 
-// Questo problema di controllare la memoria, ora che i previousLevel stanno nel database, non c'e' piu'
-// if(floor(0.8*33554432) < memory_get_usage(true)) $previousLevel = array_splice($previousLevel, $seedsCount, count($level1));
-
-// E questa cosa si fa in un altro modo
-// $previousLevel = array_merge($previousLevel, $level1);
-
 mylog($website, date("d/m/Y H:i:s")." [INFO] Adding level1 to previous level.\n");
 
 dbAddToPreviousLevel($level1);
 
-mylog($website, "\n\nPAGINE INESPLORATE RAGGIUNGIBILI DIRETTAMENTE DALLA HOMEPAGE\n\n");
+// Searching at depth 2...
 
-mylog($website, count($level1));
-
-// if(count($level1) > 300) $level1 = array();
-
-// echo("\n\n------------- PRIMO -------------------\n\n"); print_r($level1); print_r($channels); //debug
-// echo("\n\n------------- MEMORY ------------------\n\n".memory_get_usage(true)."\n\n-------------------------------\n\n");
-
-// Secondo livello (pagine raggiungibili dalla home in un click)
-
-// if(time()-$start > 12*60*60) goto fine;
 if(isset($level2)) unset($level2); $level2 = array();
 
 mylog($website, date("d/m/Y H:i:s")." [INFO] Start level 2.\n");
@@ -339,7 +301,6 @@ mylog($website, date("d/m/Y H:i:s")." [INFO] Download successfull from $link1.\n
 
 		mylog($website, date("d/m/Y H:i:s")." [INFO] Composing level2link1 links list.\n");
 
-		// $level2link1 = array_merge(array_slice(explode("href",$pagestr),1),array_slice(explode("HREF",$pagestr),1));
 		$level2link1 = array_merge
                         (
                                 count(array_slice(explode("href",$pagestr),1)) < 10000 ? array_slice(explode("href",$pagestr),1) : array(),
@@ -378,19 +339,7 @@ mylog($website, date("d/m/Y H:i:s")." [INFO] Download successfull from $link1.\n
 
 		        if(false === stripos($link, $website) && !dbIsInterestingLink($link)) 
 			{
-				/*
-				if
-				(
-                        		(!in_array(substr($link,0,strpos($link,"/",8))."/", $newWebsites)) &&
-		                        (!in_array(str_replace("http://","http://www.",substr($link,0,strpos($link,"/",8))."/"), $newWebsites)) &&
-                                        (!in_array(str_replace("https://","https://www.",substr($link,0,strpos($link,"/",8))."/"), $newWebsites)) &&
-                		        (!in_array(str_replace("www.","",substr($link,0,strpos($link,"/",8))."/"), $newWebsites))
-				)
-				{
-					$newWebsites[] = substr($link,0,strpos($link,"/",8))."/";
-		                        if(2000 < count($newWebsites)) $newWebsites = array_slice($newWebsites, 1);
-				}
-				*/
+				
 				mylog($website, date("d/m/Y H:i:s")." [INFO] It has to be added to new websites.\n");
 
 		                dbAddToNewWebsites(substr($link,0,strpos($link,"/",8))."/");
@@ -417,18 +366,9 @@ mylog($website, date("d/m/Y H:i:s")." [INFO] Download successfull from $link1.\n
 
 }
 
-mylog($website, "\n\n[PAGINE ESPLORATE RAGGIUNGIBILI DIRETTAMENTE DALLA HOME] => [PAGINE INESPLORATE RAGGIUNGIBILI DALLA HOME IN DUE CLICK]\n\n");
- 
-mylog($website, count($level2));
-
 unset($level1);
 
-// echo("\n\n------------- SECONDO  -------------------\n\n"); print_r($level2); print_r($channels); // debug
-// echo("\n\n------------- MEMORY ------------------\n\n".memory_get_usage(true)."\n\n-------------------------------\n\n");
-
-// Terzo livello (pagine raggiungibili dalla home in due click)
-
-// if(time()-$start > 12*60*60) goto fine;
+// Searching at depth 3...
 
 mylog($website, date("d/m/Y H:i:s")." [INFO] Start level 3.\n");
 
@@ -567,7 +507,6 @@ foreach($level2 as $key => $item)
 
 			mylog($website, date("d/m/Y H:i:s")." [INFO] Composing level3link2 links list.\n");
 
-//        		$level3link2 = array_merge(array_slice(explode("href",$pagestr),1),array_slice(explode("HREF",$pagestr),1));
 			$level3link2 = array_merge
                         (
                                 count(array_slice(explode("href",$pagestr),1)) < 10000 ? array_slice(explode("href",$pagestr),1) : array(),
@@ -607,27 +546,13 @@ foreach($level2 as $key => $item)
                         	{
 	                                mylog($website, date("d/m/Y H:i:s")." [INFO] Has to be added.\n");
 
-					/* if
-        	                        (
-                	                        (!in_array(substr($link,0,strpos($link,"/",8))."/", $newWebsites)) &&
-                        	                (!in_array(str_replace("http://","http://www.",substr($link,0,strpos($link,"/",8))."/"), $newWebsites)) &&
-	                                        (!in_array(str_replace("https://","https://www.",substr($link,0,strpos($link,"/",8))."/"), $newWebsites)) &&
-                                	        (!in_array(str_replace("www.","",substr($link,0,strpos($link,"/",8))."/"), $newWebsites))
-                                	)
-					{
-						$newWebsites[] = substr($link,0,strpos($link,"/",8))."/";
-						if(2000 < count($newWebsites)) $newWebsites = array_slice($newWebsites, 1);
-					} */
-	
+					
 	                                dbAddToNewWebsites(substr($link,0,strpos($link,"/",8))."/");
 					mylog($website, date("d/m/Y H:i:s")." [INFO] Was added.\n");
 
                         	}
 				
 	               	}
-
-//			if(floor(0.8*33554432) < memory_get_usage(true)) $previousLevel = array_splice($previousLevel, $seedsCount, count($level3link2));
-//			$previousLevel = array_merge($previousLevel, $level3link2);
 
 			mylog($website, date("d/m/Y H:i:s")." [INFO] adding level3link2 to previous level.\n");
 
@@ -639,19 +564,9 @@ foreach($level2 as $key => $item)
 	}
 }
 
-mylog($website, "\n\n[PAGINE ESPLORATE RAGGIUNGIBILI DALLA HOME IN DUE CLICK] => [PAGINE INESPLORATE RAGGIUNGIBILI DALLA HOME IN TRE CLICK]\n\n");
-
-mylog($website, count($level3));  
-
 unset($level2);
 
-// if(time()-$start > 12*60*60) goto fine;
-
-// echo("\n\n------------- TERZO -------------------\n\n"); print_r($level3); print_r($channels); // debug
-// echo("\n\n------------- MEMORY ------------------\n\n".memory_get_usage(true)."\n\n-------------------------------\n\n");
-
-
-// Quarto livello (pagine raggiungibili dalla home in tre click)
+// Searching at depth 4...
 
 mylog($website, date("d/m/Y H:i:s")." [INFO] Start level 4.\n");
 
@@ -825,18 +740,6 @@ mylog($website, date("d/m/Y H:i:s")." [INFO] Download completed from $link3.\n")
 
 					mylog($website, date("d/m/Y H:i:s")." [INFO] Has to be added to new websites.\n");
 
-	                                /*if
-        	                        (
-                	                        (!in_array(substr($link,0,strpos($link,"/",8))."/", $newWebsites)) &&
-                        	                (!in_array(str_replace("http://","http://www.",substr($link,0,strpos($link,"/",8))."/"), $newWebsites)) &&
-	                                        (!in_array(str_replace("https://","https://www.",substr($link,0,strpos($link,"/",8))."/"), $newWebsites)) &&
-                                	        (!in_array(str_replace("www.","",substr($link,0,strpos($link,"/",8))."/"), $newWebsites))
-                                	)
-					{
-                                                $newWebsites[] = substr($link,0,strpos($link,"/",8))."/";
-						if(2000 < count($newWebsites)) $newWebsites = array_slice($newWebsites, 1);
-                                        }*/
-	
 	                                dbAddToNewWebsites(substr($link,0,strpos($link,"/",8))."/");
 
 					mylog($website, date("d/m/Y H:i:s")." [INFO] Was added to new websites.\n");
@@ -848,10 +751,6 @@ mylog($website, date("d/m/Y H:i:s")." [INFO] Download completed from $link3.\n")
                 	}
 
 			mylog($website, date("d/m/Y H:i:s")." [INFO] Inspection completed.\n");
-
-
-//			if(floor(0.8*33554432) < memory_get_usage(true)) $previousLevel = array_splice($previousLevel, $seedsCount, count($level4link3));
-//			$previousLevel = array_merge($previousLevel, $level4link3);
 			
 			mylog($website, date("d/m/Y H:i:s")." [INFO] Adding level4link3 to previous level\n");
 
@@ -865,19 +764,9 @@ mylog($website, date("d/m/Y H:i:s")." [INFO] Download completed from $link3.\n")
 
 }
 
-mylog($website, "\n\n[PAGINE ESPLORATE RAGGIUNGIBILI DALLA HOME IN TRE CLICK] => [PAGINE INESPLORATE RAGGIUNGIBILI DALLA HOME IN QUATTRO CLICK]\n\n");
-
-mylog($website, count($level4)); 
-
 unset($level3);
 
-// echo("\n\n------------- QUARTO -------------------\n\n"); print_r($level4); print_r($channels); // debug
-// echo("\n\n------------- MEMORY ------------------\n\n".memory_get_usage(true)."\n\n-------------------------------\n\n");
-
-
-// Quinto livello (pagine raggiungibili dalla home in quattro click)
-
-// if(time()-$start > 12*60*60) goto fine;
+// Searching at depth 5...
 
 mylog($website, date("d/m/Y H:i:s")." [INFO] Start level 5.\n");
 
@@ -1015,7 +904,6 @@ foreach($level4 as $key => $item)
 
 			mylog($website, date("d/m/Y H:i:s")." [INFO] Composing level5link4 links list.\n");
 
-//                        $level5link4 = array_merge(array_slice(explode("href",$pagestr),1),array_slice(explode("HREF",$pagestr),1));
 			$level5link4 = array_merge
                         (
                                 count(array_slice(explode("href",$pagestr),1)) < 10000 ? array_slice(explode("href",$pagestr),1) : array(),
@@ -1054,18 +942,8 @@ foreach($level4 as $key => $item)
                         	{
 					mylog($website, date("d/m/Y H:i:s")." [INFO] Has to be added.\n");
 
-                                	/*if
-                                	(
-                                        	(!in_array(substr($link,0,strpos($link,"/",8))."/", $newWebsites)) &&
-	                                        (!in_array(str_replace("http://","http://www.",substr($link,0,strpos($link,"/",8))."/"), $newWebsites)) &&
-	                                        (!in_array(str_replace("https://","https://www.",substr($link,0,strpos($link,"/",8))."/"), $newWebsites)) &&
-        	                                (!in_array(str_replace("www.","",substr($link,0,strpos($link,"/",8))."/"), $newWebsites))
-                	                )                                      
-					{
-                                                $newWebsites[] = substr($link,0,strpos($link,"/",8))."/";
-						if(2000 < count($newWebsites)) $newWebsites = array_slice($newWebsites, 1);
-                                        }*/
 	                                dbAddToNewWebsites(substr($link,0,strpos($link,"/",8))."/");
+
 					mylog($website, date("d/m/Y H:i:s")." [INFO] Was added.\n");
 
                         	}
@@ -1076,8 +954,6 @@ foreach($level4 as $key => $item)
 
 			mylog($website, date("d/m/Y H:i:s")." [INFO] Inspection complete.\n");
 
-//			if(floor(0.8*33554432) < memory_get_usage(true)) $previousLevel = array_splice($previousLevel, $seedsCount, count($level5link4));
-//			$previousLevel = array_merge($previousLevel, $level5link4);
 			mylog($website, date("d/m/Y H:i:s")." [INFO] Adding level5link4 to previous level.\n");
 
 			dbAddToPreviousLevel($level5link4);
@@ -1089,46 +965,22 @@ foreach($level4 as $key => $item)
 
 }
 
-mylog($website, "\n\n[PAGINE ESPLORATE RAGGIUNGIBILI DALLA HOME IN QUATTRO CLICK] => [PAGINE INESPLORATE RAGGIUNGIBILI DALLA HOME IN CINQUE CLICK]\n\n");
+// Search terminated. Outputting stats...
 
-mylog($website, count($level5)); 
-
-// echo("\n\n------------- QUINTO -------------------\n\n"); print_r($level5); print_r($channels); // debug
-// echo("\n\n------------- MEMORY ------------------\n\n".memory_get_usage(true)."\n\n-------------------------------\n\n");
-
-
-// fine:
-
-// Presentazione a video dei canali trovati e del tempo richiesto per l'esecuzione
-
-mylog($website, "\n\n>>> CANALI INDIVIDUATI >>>\n\n");
+mylog($website, "\n\n>>> CHANNELS FOUND >>>\n\n");
 
 mylog($website, print_r($channels,true));
 
-// Numero dei canali individuati
-
 $monitorChannels = count($channels);
-
-// Tempo di esecuzione
 
 $end = time();
 $monitorExetime = $end-$start;
-mylog($website, "\n\n>>> TEMPO DI ESECUZIONE >>>\n\n".($end-$start)." s\n\n");
-
-// Annotazione su DB delle statistiche della ricerca in questo website
+mylog($website, "\n\n>>> EXECUTION TIME >>>\n\n".($end-$start)." s\n\n");
 
 $conn = mysqli_connect($dbconn_hostname,$dbconn_username,$dbconn_password,$dbconn_dbname);
 //mysqli_query($conn, "DELETE FROM admin__channelsd WHERE website = '$canonicWebsiteAddress'");
 mysqli_query($conn, "INSERT INTO admin__channelsd(website, downloads, skipped, channels, exetime, datetime) VALUES ( '$canonicWebsiteAddress', $monitorDownloads, $monitorSkipped, $monitorChannels, $monitorExetime, NOW() )");
 mysqli_close($conn);
-
-// New Websites Persistence
-// Questa cosa non serve piu' dal momento che i newWebsites stanno sul database.
-/*
-$newWebsitesFile = fopen("tmp/channelsd/new_websites","w");
-fwrite($newWebsitesFile, implode("\n",$newWebsites));
-fclose($newWebsitesFile);
-*/
 
 mylog($website, date("d/m/Y H:i:s")." [INFO] Exiting\n");
 
@@ -1136,7 +988,7 @@ cleanLog();
 
 exit(1);
 
-// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> FINE SCRIPT >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+// Function definitions 
 
 function cleanLog()
 {
@@ -1181,12 +1033,6 @@ function clean(&$array, $website, $path)
 		if(false !== strpos($item, "#")) $item = substr($item, 0, strpos($item,"#"));
 		if($item == "") { unset($array[$key]); $deleted++; continue; }
 
-		// debug
-		// echo("\n\n--> DEBUG WARNING PHP EX RIGA 700\n\n");
-		// echo("item = \"$item\"\npath = \"$path\"");
-		// echo("\n\n--> FINE DEBUG WARNING PHP EX RIGA 700\n\n");
-		// fine debug
-		// modificato questo --------------> prima era item = path.item
 		if(stripos($item, "http://") !== 0 && stripos($item, "https://") !== 0 && strpos($item, "/") !== 0) $item = substr($path,0,strrpos($path,"/"))."/".$item;
 		else 
 		{
@@ -1197,11 +1043,6 @@ function clean(&$array, $website, $path)
 		if(false === strpos($item,"/",8)) $item.="/";
 		if(false !== strpos($item, "?"))
 		{
-			/*if(!in_array(substr($item,0,strpos($item,"?")),$pages)) 
-			{
-				if(floor(0.8*33554432) < memory_get_usage(true)) $pages = array_splice($pages, 0, 1);
-				$pages[] = substr($item,0,strpos($item,"?"));
-			}*/
 			if(!dbIsInPages(substr($item,0,strpos($item,"?"))))
 			{
 				dbAddToPages(substr($item,0,strpos($item,"?")));
@@ -1229,11 +1070,6 @@ function clean(&$array, $website, $path)
 		}
 		if(false !== strpos($item, ";"))
                 {
-                        /*if(!in_array(substr($item,0,strpos($item,";")),$pages))
-                        {
-                                if(floor(0.8*33554432) < memory_get_usage(true)) $pages = array_splice($pages, 0, 1);
-                                $pages[] = substr($item,0,strpos($item,";"));
-                        }*/
                         if(!dbIsInPages(substr($item,0,strpos($item,";"))))
                         {
                                 dbAddToPages(substr($item,0,strpos($item,";")));
@@ -1338,11 +1174,6 @@ function clean(&$array, $website, $path)
                 {
 
 			$interestingLinkFound = true;
-			/*if(!in_array($item, $interestingLinks)) 
-			{
-                                if(floor(0.8*33554432) < memory_get_usage(true)) $interestingLinks = array_splice($interestingLinks, 0, 1);
-				$interestingLinks[] = $item;
-			}*/
 			if(!dbIsInterestingLink($item))
 			{
 				dbAddToInterestingLinks($item);
@@ -1363,27 +1194,6 @@ function clean(&$array, $website, $path)
 			if(dbIsInPreviousLevel($qsStrippedItem."/")) { unset($array[$key]); $deleted++; continue; }
 			if(dbIsInPreviousLevel(substr(trim($qsStrippedItem),0,strlen(trim($qsStrippedItem))-1))) { unset($array[$key]); $deleted++; continue; }
 
-/*
-			if(false !== stripos($qsStrippedItem, "/")) 
-			{
-				if(!isset($pathForStatistics[substr($qsStrippedItem,0,strrpos($qsStrippedItem,"/"))]))
-				{
-					$pathForStatistics[substr($qsStrippedItem,0,strrpos($qsStrippedItem,"/"))] = array($qsStrippedItem);
-				}
-				else
-				{
-					if(!in_array($qsStrippedItem, $pathForStatistics[substr($qsStrippedItem,0,strrpos($qsStrippedItem,"/"))])) 
-					{
-						$pathForStatistics[substr($qsStrippedItem,0,strrpos($qsStrippedItem,"/"))][] = $qsStrippedItem;
-					}
-					if(3000 < count($pathForStatistics[substr($qsStrippedItem,0,strrpos($qsStrippedItem,"/"))])) 
-					{
-						unset($array[$key]); $deleted++; continue;
-					}	
-				}
-			 ( false !== stripos($item, "<frame") && false === stripos(substr($item,strripos($item,"<frame")), "</frame") )
-}
-*/
 			$itemdomain = substr($item,0,strpos($item,"/",8))."/";
 			if(0 !== stripos($path, $itemdomain) && (!is_numeric(str_replace("/","",str_replace("https://","",str_replace("http://","",str_replace(".","",strtolower($itemdomain))))))) && (0 !== stripos($itemdomain, "http://www.halleyweb.com/")))
 			{
@@ -1417,7 +1227,7 @@ function clean(&$array, $website, $path)
 				}
 				else
 				{
-	//				$item = $itemdomain;
+
 				}
 			}
 			
@@ -1537,7 +1347,7 @@ mylog("download", date("d/m/Y H:i:s")." [INFO] Downloading page through wget for
 exec("wget -O tmp/channelsd/original_page -t 1 -T 60 \"$url\" &>/dev/null || echo \"DOWNLOAD FAILED\"");
 mylog("download", date("d/m/Y H:i:s")." [INFO] Debug download completed.\n");
 
-// echo("Downloading from $url\n"); // debug
+
 if(!seemsWebPageToBeFollowed($url)) { 
 mylog("download", date("d/m/Y H:i:s")." [INFO] It does not seem a web page to be downloaded. Download fails.\n");
 return false; 
@@ -1611,13 +1421,13 @@ $timeout = 60;
                         }
                 }
 
-//return;
+
 		if(!(isset($responseHeaders->headers["Location"]) && trim($responseHeaders->headers["Location"]) != "")) return false;
 		if(strlen($url) > 2083) return false;
 		mylog("download", date("d/m/Y H:i:s")." [INFO] Redirecting...\n");
 
 		if(!seemsWebPageToBeFollowed($url)) return false;
-		//if(trim($responseHeaders->headers["Location"]) == trim($url)) return false;
+
         	$responseHeaders = array();
 		$rawResponseHeaders = @http_head($url, array('timeout'=>$timeout), $responseHeaders);
 	        if(trim($rawResponseHeaders) == "") return false;
@@ -1642,7 +1452,7 @@ $timeout = 60;
 
 	mylog("download", date("d/m/Y H:i:s")." [INFO] Beginning actual download.\n");
 
-//        $file = @fopen($url, "rb");
+
         $context = stream_context_create( array(
                 'http'=>array(
                     'timeout' => $timeout
@@ -1736,8 +1546,6 @@ $timeout = 60;
 
 	}
 	
-	// Ora che abbiamo scaricato il file, dobbiamo gestire il caso in cui lo stesso sia in formato compresso.
-
 	mylog("download", date("d/m/Y H:i:s")." [INFO] Uncompressing...\n");
 
 	if(!uncompress($path, "$path.unzip")) 
@@ -1748,15 +1556,11 @@ $timeout = 60;
 	exec("rm -f $path");
 	exec("mv $path.unzip $path");
 
-	// Verifichiamo che sia andato tutto bene.
-
 	if(!file_exists($path)) 
 	{
 		mylog("download", date("d/m/Y H:i:s")." [INFO] Failed! Download fails.\n");
 		return false;
 	}
-
-	// Verifichiamo il mime type
 
 	mylog("download", date("d/m/Y H:i:s")." [INFO] Checking MIME type...\n");
 
@@ -1770,26 +1574,15 @@ $timeout = 60;
 		return false;
 	}
 	
-	// E a questo punto sul file decompresso possiamo procedere con le successive elaborazioni.
-//	if(filesize($path) < floor(0.8*33554432)-memory_get_usage(true))
 	if(filesize($path) < 10000000)
 	{
 	
 		mylog("download", date("d/m/Y H:i:s")." [INFO] Starting computations on downloaded page.\n");
 	
-		// Apriamo il file scaricato
-
-//		$pagestr = file_get_contents($path, false, null, -1, floor(0.8*33554432)-memory_get_usage(true));
 		$pathfile = fopen($path, "rb");
 		
-		// debug
-		// echo("\n\n--> DEBUG WARNING PHP EX RIGA 1090\n\n");
-		// echo("pathfile = \"$pathfile\"\nmemory_get_usage = ".memory_get_usage(true)."\navailable memory: ".(floor(0.8*33554432)-memory_get_usage(true))."\n");
-		// echo("--> FINE DEBUG WARNING PHP EX RIGA 1090");
-		// fine debug
-		
 		$pagestr = fread($pathfile, 10000000);
-//		$pagestr = fread($pathfile, floor(0.8*33554432)-memory_get_usage(true));
+
 
 		fclose($pathfile);
 
@@ -1830,7 +1623,7 @@ $timeout = 60;
 		
 		mylog("download", date("d/m/Y H:i:s")." [INFO] Removing comments.\n");
 
-		// Rimuoviamo i commenti
+
 		$pagestr = explode("<!--",$pagestr);
 		for($i = 0; $i < count($pagestr); $i++) 
 		{
@@ -1853,7 +1646,6 @@ $timeout = 60;
 
 		mylog("download", date("d/m/Y H:i:s")." [INFO] Checking for META redirection...\n");
 
-		// Gestione del caso del redirect
 
 		if(stripos(trim($pagestr),"<meta") !== 0) $metas = array_merge(array_slice(explode("<meta",$pagestr),1),array_slice(explode("<META",$pagestr),1));
 		else $metas = array_merge(explode("<meta",$pagestr),explode("<META",$pagestr));
@@ -2071,7 +1863,6 @@ function seemsWebPageToBeFollowed($item)
                                 false !== stripos($item, ".wav") ||
 				false !== stripos($item, ".flv") ||
 				false !== stripos($item, ".cgi") ||
-//				false !== stripos($item, "/../") ||
 				false !== stripos($item, "(") ||
 				false !== stripos($item, ")")
 				)
@@ -2090,8 +1881,6 @@ function trimAll(&$item, $key)
 {
 	$item = trim($item);
 }
-
-// db functions
 
 function dbAddToNewWebsites($item)
 {
