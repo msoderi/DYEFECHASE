@@ -9,61 +9,36 @@ Diefechase is a PHP script aimed to automatically discovering RSS, ATOM, and RDF
 How Diefechase works
 --------------------
 
-The software description provided below applies to starting point software.
+You provide an input text file where you write, one for each line, the URL of websites where Diefechase should look for RSS, ATOM and RDF channels. Path and filename of this input file can be configured by editing the Config section of PHP script.
 
-You have to provide a text file named cwebsites where you write, one for each line, the URL of websites where Diefechase should look for RSS, ATOM and RDF channels.
+The PHP script copies the input text file you provided, to a working file, whose path and filename can be configured by editing the Config section of PHP script. The PHP script will use this working file during its work, so leaving the input file you provided unaltered.
 
-The text file must locate in the same folder where the PHP file is located.
+The PHP script browses to the URL written at the first line of the working input text file, and follows both internal and external links from the given URL down for up to five levels.
 
-The PHP script browses to the URL written in the first line, and follows both internal and external links from the given URL down for up to five levels.
+While doing this, every time it discovers a link to a RSS, ATOM or RDF channel, Diefechase stores it in the database, in a table whose name can be configured by editing the Config section of PHP script.
 
-By doing this, every time it discovers a link to a RSS, ATOM or RDF channel, Diefechase stores it in the admin__channels database table.
+After having completed the search in the website, Diefechase write down some statistics in the database, in a table whose name can be configured by editing the Config section of PHP script.
 
-After having completed the search in the website, Diefechase write down some statistics in the admin__channelsd database table.
+At each execution, Diefechase also deletes the first line from the working input text file, so that executing the PHP script multiple times, you will have all websites searched, and the working input text file emptied. When the PHP script finds the working input text file empty, or is not able to find the working input text file where expected, it creates it, copying from the original input text file you provided. This way, you can launch your search and forgive the daemon. When it'll finish, it'll automatically restart searching from the first website. 
 
-At each execution, Diefechase also deletes the first line of text input file, so that executing the script multiple times, you will have all websites searched, and the input text file emptied.
+For executing the PHP script multiple times automatically, you could launch the provided shell script if you operate under a UNIX environment, or make an equivalent batch file if you run the PHP script under a Windows environment.
 
-For executing the script multiple times automatically, you could launch the provided shell script if you operate under a UNIX environment, or make an equivalent batch file if you run the PHP script under a Windows environment.
+Starting point software is tested under UNIX environment, using a MySql database. In effect, starting point software is effectively used at now by Synd.it, an Italian project where RSS, ATOM and RDF channels are discovered (Diefechase), and parsed to get news made available to common users via a PHP website. Channel parsing code, and presentation website, are not part of this project.
 
-Starting point software is tested under UNIX environment, using a MySql database.
-
-Starting point software is effectively used at now by Synd.it, an Italian project where RSS, ATOM and RDF channels are discovered (Diefechase), and parsed to get news made available to common users via a PHP website. Channel parsing code, and presentation website, are not part of this project.
+Latest release of Diefechase has not been tested yet.
 
 Quick start
 -----------
 
-1. Edit PHP script by writing down database connection information where requested.
+1. Edit PHP script by writing down configuration data where requested (at the very top of the file).
 
-2. Create database tables using provided diefechase.sql script.
+2. Create and populate the input text file containing the list of websites where to look for channels, each website URL on a separate line.
 
-3. Create the folder structure as follows:
+3. Launch your search. If you operate under a UNIX environment, you could launch, as an example, "nohup sh diefechase.sh &> /dev/null &" 
 
-project root folder (give it a name of your choice)
-|
-----> diefechase.php [file]
-|
-----> diefechase.sh [file]
-|
-----> cwebsites [file]
-|
-----> commands [folder]
-|     |
-|     ----> [ create this folder but leave it empty at setup, you will add files to force execution termination in the future if needed ]
-|
-----> tmp [folder]
-|     |
-|     ----> channelsd [folder]
-|           |
-|           ----> fetchedpage [folder]
-|                 |
-|                 ----> [ create this folder but leave it empty at setup, script will populate it during execution ]
-|
-----> log [ folder ]
-      |
-      ----> channelsd [ folder]
-            |
-            ----> [create this folder but leave it empty at setup, script will populate it during execution ]
+Contributions & Bug reports
+---------------------------
 
-4. Populate cwebsites input text file, by writing URLs where the script should search for RSS, ATOM and RDF channels. URLs have to be written one per line. The script will search five level depth starting from each of the provided URLs.
+Diefechase is a GitHub project.
 
-5. Launch search. If you operate under a UNIX environment, you could launch, as an example, "nohup sh diefechase.sh &> /dev/null &" 
+Browse to https://github.com/msoderi/DYEFECHASE to contribute and/or report bugs.

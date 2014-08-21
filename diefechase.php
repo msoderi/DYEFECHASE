@@ -7,26 +7,113 @@ $dbconn_username = "write down username for database connection here";
 $dbconn_password = "write down password for database connection here";
 $dbconn_dbname = "write down database name here";
 
+$dbtable_channels = "admin___channels";
+$dbtable_statistics = "admin___channelsd";
+$dbtable_enw = "engine___new_websites";
+$dbtable_ep = "engine___pages";
+$dbtable_eil = "engine___interesting_links";
+$dbtable_epl = "engine___previous_level";
+
+$file_wsl = "swebsites";
+$file_input = "cwebsites";
+$file_stopcmd = "stop.cmd";
+$file_tmp = "diefechase.tmp";
+$file_orig = "diefechase.orig";
+$folder_log = "log";
+
+// Setup
+
+$conn = mysqli_connect($dbconn_hostname,$dbconn_username,$dbconn_password,$dbconn_dbname);
+
+$query__admin_channels = <<<ADMINCHANNELSQUERY
+CREATE TABLE IF NOT EXISTS `admin__channels` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `channel` varchar(255) NOT NULL,
+  `referer` varchar(255) NOT NULL,
+  `LastModified` varchar(255) NOT NULL,
+  `ContentLength` varchar(255) NOT NULL,
+  `skip` tinyint(1) NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `channel` (`channel`)
+) ENGINE=InnoDB AUTO_INCREMENT=335448 DEFAULT CHARSET=utf8;
+ADMINCHANNELSQUERY;
+
+mysqli_query($conn, $query__admin_channels);
+
+$query__admin_channelsd = <<<ADMINCHANNELSDQUERY
+CREATE TABLE IF NOT EXISTS `admin__channelsd` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `website` varchar(255) NOT NULL,
+  `downloads` int(10) unsigned NOT NULL,
+  `skipped` int(10) unsigned NOT NULL,
+  `channels` int(10) unsigned NOT NULL,
+  `exetime` int(10) unsigned NOT NULL,
+  `datetime` datetime NOT NULL,
+  `v` tinyint(1) NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=13219 DEFAULT CHARSET=utf8;
+ADMINCHANNELSDQUERY;
+
+mysqli_query($conn, $query__admin_channelsd);
+
+$query__engine_interesting_links = <<<ENGINEINTERESTINGLINKSQUERY
+CREATE TABLE IF NOT EXISTS `engine__interesting_links` (
+  `item` varchar(255) NOT NULL,
+  PRIMARY KEY (`item`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+ENGINEINTERESTINGLINKSQUERY;
+
+mysqli_query($conn, $query__engine_interesting_links);
+
+$query__engine_new_websites = <<<ENGINENEWWEBSITESQUERY
+CREATE TABLE IF NOT EXISTS `engine__new_websites` (
+  `item` varchar(255) NOT NULL,
+  PRIMARY KEY (`item`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+ENGINENEWWEBSITESQUERY;
+
+mysqli_query($conn, $query__engine_new_websites);
+
+$query__engine_pages = <<<ENGINEPAGESQUERY
+CREATE TABLE IF NOT EXISTS `engine__pages` (
+  `item` varchar(255) NOT NULL,
+  PRIMARY KEY (`item`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+ENGINEPAGESQUERY;
+
+mysqli_query($conn, $query__engine_pages);
+
+$query__previous_level = <<<PREVIOUSLEVELQUERY
+CREATE TABLE IF NOT EXISTS`engine__previous_level` (
+  `item` varchar(255) NOT NULL,
+  PRIMARY KEY (`item`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+PREVIOUSLEVELQUERY;
+
+mysqli_query($conn, $query__previous_level);
+
+mysqli_close($conn);
+
 // Mandatory timezone
 
 date_default_timezone_set("Europe/Rome");
 
 // If requested, execution terminates.
-// To request termination, create an empty file at the relative position commands/stop_channelsd.
+// To request termination, create an empty file at the relative position $file_stopcmd.
 // Note: this way, not only PHP script, but even shell script execution terminates.
 
-if(file_exists("commands/stop_channelsd")) 
+if(file_exists("$file_stopcmd")) 
 {
-	mylog("generic", date("d/m/Y H:i:s")." INFO Stop channelsd command sent. Daemon killed.\n");
-	unlink("commands/stop_channelsd");
+	mylog("generic", date("d/m/Y H:i:s")." INFO Stop command sent. Daemon killed.\n");
+	unlink("$file_stopcmd");
 	exit(0);
 }
 
-// Get URL at the first line of input text file named cwebsites, located where the PHP script also is.
+// Get URL at the first line of input text file named $file_input located where the PHP script also is.
 // This script will search for RSS, ATOM and RDF channels starting from that URL.
 // If the input text file is not available, execution terminates.
 
-$websitesfile = fopen("cwebsites","r");
+$websitesfile = fopen("$file_input","r");
 $website = trim(fgets($websitesfile));
 if(!$website) 
 {
@@ -39,7 +126,7 @@ fclose($websitesfile);
 
 $canonicWebsiteAddress = $website;
 
-exec("sed -i 1d cwebsites");
+exec("sed -i 1d $file_input");
 
 // Some initializations
 
@@ -70,7 +157,7 @@ mylog($website, date("d/m/Y H:i:s")." [INFO] Starting level 1.\n");
 if(isset($level1)) unset($level1); $level1 = array();
 
 mylog($website, date("d/m/Y H:i:s")." INFO Downloading from $website\n");
-$actualWebsite = download($website,"tmp/channelsd/fetchedpage"); $website = $actualWebsite;
+$actualWebsite = download($website,"$file_tmp"); $website = $actualWebsite;
 
 if(!$website) 
 {
@@ -96,7 +183,7 @@ if($path == "http://" || $path == "https://")
         $path = substr($pWebsite,0,strrpos($pWebsite,"/"))."/";
 }
 
-if(filesize("tmp/channelsd/fetchedpage") > floor(0.8*33554432)-memory_get_usage(true)) 
+if(filesize("$file_tmp") > floor(0.8*33554432)-memory_get_usage(true)) 
 {
 	mylog($website, date("d/m/Y H:i:s")." [ERR] Memory problem.\n");
 	exit(1);
@@ -104,7 +191,7 @@ if(filesize("tmp/channelsd/fetchedpage") > floor(0.8*33554432)-memory_get_usage(
 
 mylog($website, date("d/m/Y H:i:s")." [INFO] Putting downloaded page to string.\n");
 
-$pagestr = file_get_contents("tmp/channelsd/fetchedpage");
+$pagestr = file_get_contents("$file_tmp");
 
 mylog($website, date("d/m/Y H:i:s")." [INFO] Computing basehref.\n");
 
@@ -177,7 +264,7 @@ foreach($level1 as $link1)
 	if(trim($link1) == "") continue;
 mylog($website, date("d/m/Y H:i:s")." INFO Downloading from $link1\n");
 	
-	$actualLink1 = download($link1, "tmp/channelsd/fetchedpage"); $link1 = $actualLink1;
+	$actualLink1 = download($link1, "$file_tmp"); $link1 = $actualLink1;
 
 mylog($website, date("d/m/Y H:i:s")." [INFO] Download completed from $link1.\n");
 
@@ -203,7 +290,7 @@ mylog($website, date("d/m/Y H:i:s")." [INFO] Download successfull from $link1.\n
 
 			mylog($website, date("d/m/Y H:i:s")." [INFO] $link1 could be interesting.\n");
 
-		        $file = fopen("tmp/channelsd/fetchedpage","r");
+		        $file = fopen("$file_tmp","r");
 		        $fileFragment = fread($file, 1024);
 	                
 			mylog($website, date("d/m/Y H:i:s")." [INFO] Fetched first bytes.\n");
@@ -220,7 +307,7 @@ mylog($website, date("d/m/Y H:i:s")." [INFO] Download successfull from $link1.\n
 
 					$channels[] = $link1;
 					$conn = mysqli_connect($dbconn_hostname,$dbconn_username,$dbconn_password,$dbconn_dbname);
-					mysqli_query($conn, "INSERT INTO admin__channels(channel, referer) VALUES ( '$link1', '$website')");
+					mysqli_query($conn, "INSERT INTO $dbtable_channels(channel, referer) VALUES ( '$link1', '$website')");
 					mysqli_close($conn);
 
 					mylog($website, date("d/m/Y H:i:s")." [INFO] $link1 was added to channels list.\n");
@@ -258,7 +345,7 @@ mylog($website, date("d/m/Y H:i:s")." [INFO] Download successfull from $link1.\n
 
 							$channels[] = $link1;
 	                                	        $conn = mysqli_connect($dbconn_hostname,$dbconn_username,$dbconn_password,$dbconn_dbname);
-        	                                	mysqli_query($conn, "INSERT INTO admin__channels(channel, referer) VALUES ( '$link1', '$website')");
+        	                                	mysqli_query($conn, "INSERT INTO $dbtable_channels(channel, referer) VALUES ( '$link1', '$website')");
 	                	                        mysqli_close($conn);
 
 							mylog($website, date("d/m/Y H:i:s")." [INFO] $link1 was added to channels list.\n");
@@ -275,7 +362,7 @@ mylog($website, date("d/m/Y H:i:s")." [INFO] Download successfull from $link1.\n
 	
 		mylog($website, date("d/m/Y H:i:s")." [WARN] Memory risk.\n");
 
-		if(filesize("tmp/channelsd/fetchedpage") > floor(0.8*33554432)-memory_get_usage(true)) continue;
+		if(filesize("$file_tmp") > floor(0.8*33554432)-memory_get_usage(true)) continue;
  
 		mylog($website, date("d/m/Y H:i:s")." [INFO] Computing path.\n");
 
@@ -292,7 +379,7 @@ mylog($website, date("d/m/Y H:i:s")." [INFO] Download successfull from $link1.\n
 
 		mylog($website, date("d/m/Y H:i:s")." [INFO] Downloaded page to string.\n");
 
-		$pagestr = file_get_contents("tmp/channelsd/fetchedpage");
+		$pagestr = file_get_contents("$file_tmp");
 
 		mylog($website, date("d/m/Y H:i:s")." [INFO] Computing basehref.\n");
 
@@ -384,7 +471,7 @@ foreach($level2 as $key => $item)
 		if(trim($link2) == "") continue;
 	       mylog($website, date("d/m/Y H:i:s")." INFO Downloading from $link2\n");
  
-		$actualLink2 = download($link2, "tmp/channelsd/fetchedpage"); $link2 = $actualLink2;
+		$actualLink2 = download($link2, "$file_tmp"); $link2 = $actualLink2;
 
 		mylog($website, date("d/m/Y H:i:s")." [INFO] Download completed from $link2.\n");
 
@@ -409,7 +496,7 @@ foreach($level2 as $key => $item)
 
 				mylog($website, date("d/m/Y H:i:s")." [INFO] $link2 could be interesting.\n");
 
-				$file = fopen("tmp/channelsd/fetchedpage","r");
+				$file = fopen("$file_tmp","r");
                 	        $fileFragment = fread($file, 1024);
 
 				mylog($website, date("d/m/Y H:i:s")." [INFO] Checking how it starts.\n");
@@ -426,7 +513,7 @@ foreach($level2 as $key => $item)
 
 						$channels[] = $link2;
 	                                        $conn = mysqli_connect($dbconn_hostname,$dbconn_username,$dbconn_password,$dbconn_dbname);
-        	                                mysqli_query($conn, "INSERT INTO admin__channels(channel, referer) VALUES ( '$link2', '$key')");
+        	                                mysqli_query($conn, "INSERT INTO $dbtable_channels(channel, referer) VALUES ( '$link2', '$key')");
                 	                        mysqli_close($conn);
 
 						mylog($website, date("d/m/Y H:i:s")." [INFO] It was added.\n");
@@ -464,7 +551,7 @@ foreach($level2 as $key => $item)
 
 								$channels[] = $link2;
 	                        		                $conn = mysqli_connect($dbconn_hostname,$dbconn_username,$dbconn_password,$dbconn_dbname);
-        	        	                	        mysqli_query($conn, "INSERT INTO admin__channels(channel, referer) VALUES ( '$link2', '$website')");
+        	        	                	        mysqli_query($conn, "INSERT INTO $dbtable_channels(channel, referer) VALUES ( '$link2', '$website')");
                 	                	        	mysqli_close($conn);
 
 								mylog($website, date("d/m/Y H:i:s")." [INFO] It was added.\n");
@@ -481,7 +568,7 @@ foreach($level2 as $key => $item)
 
 			mylog($website, date("d/m/Y H:i:s")." [INFO] Risk due to memory?\n");
 
-	                if(filesize("tmp/channelsd/fetchedpage") > floor(0.8*33554432)-memory_get_usage(true)) continue;
+	                if(filesize("$file_tmp") > floor(0.8*33554432)-memory_get_usage(true)) continue;
 
 			mylog($website, date("d/m/Y H:i:s")." [INFO] No, let's go on and compue path.\n");
 
@@ -498,7 +585,7 @@ foreach($level2 as $key => $item)
  
 			mylog($website, date("d/m/Y H:i:s")." [INFO] Downloaded page to string.\n");
 
-        		$pagestr = file_get_contents("tmp/channelsd/fetchedpage");
+        		$pagestr = file_get_contents("$file_tmp");
 
 			mylog($website, date("d/m/Y H:i:s")." [INFO] Computing basehref.\n");
 
@@ -583,7 +670,7 @@ foreach($level3 as $key => $item)
 		if(trim($link3) == "") continue;
 mylog($website, date("d/m/Y H:i:s")." INFO Downloading from $link3\n");
 	
-        	$actualLink3 = download($link3, "tmp/channelsd/fetchedpage"); $link3 = $actualLink3;
+        	$actualLink3 = download($link3, "$file_tmp"); $link3 = $actualLink3;
 		
 mylog($website, date("d/m/Y H:i:s")." [INFO] Download completed from $link3.\n");
 
@@ -608,7 +695,7 @@ mylog($website, date("d/m/Y H:i:s")." [INFO] Download completed from $link3.\n")
                         {
 				mylog($website, date("d/m/Y H:i:s")." [INFO] Seems interesting.\n");
 
-                                $file = fopen("tmp/channelsd/fetchedpage","r");
+                                $file = fopen("$file_tmp","r");
                                 $fileFragment = fread($file, 1024);
 				mylog($website, date("d/m/Y H:i:s")." [INFO] Looking at how it starts.\n");
 
@@ -622,7 +709,7 @@ mylog($website, date("d/m/Y H:i:s")." [INFO] Download completed from $link3.\n")
 
 						$channels[] = $link3;
 	                                        $conn = mysqli_connect($dbconn_hostname,$dbconn_username,$dbconn_password,$dbconn_dbname);
-        	                                mysqli_query($conn, "INSERT INTO admin__channels(channel, referer) VALUES ( '$link3', '$key')");
+        	                                mysqli_query($conn, "INSERT INTO $dbtable_channels(channel, referer) VALUES ( '$link3', '$key')");
                 	                        mysqli_close($conn);
 
 						mylog($website, date("d/m/Y H:i:s")." [INFO] It was added.\n");
@@ -656,7 +743,7 @@ mylog($website, date("d/m/Y H:i:s")." [INFO] Download completed from $link3.\n")
 
 							$channels[] = $link3;
 		                                        $conn = mysqli_connect($dbconn_hostname,$dbconn_username,$dbconn_password,$dbconn_dbname);
-                		                        mysqli_query($conn, "INSERT INTO admin__channels(channel, referer) VALUES ( '$link3', '$key')");
+                		                        mysqli_query($conn, "INSERT INTO $dbtable_channels(channel, referer) VALUES ( '$link3', '$key')");
                                 		        mysqli_close($conn);
 							mylog($website, date("d/m/Y H:i:s")." [INFO] Was added..\n");
 
@@ -673,7 +760,7 @@ mylog($website, date("d/m/Y H:i:s")." [INFO] Download completed from $link3.\n")
 			mylog($website, date("d/m/Y H:i:s")." [INFO] Memory problems?\n");
 
 
-                        if(filesize("tmp/channelsd/fetchedpage") > floor(0.8*33554432)-memory_get_usage(true)) continue;
+                        if(filesize("$file_tmp") > floor(0.8*33554432)-memory_get_usage(true)) continue;
 
 			mylog($website, date("d/m/Y H:i:s")." [INFO] No let's compose path.\n");
 
@@ -690,7 +777,7 @@ mylog($website, date("d/m/Y H:i:s")." [INFO] Download completed from $link3.\n")
 	
 			mylog($website, date("d/m/Y H:i:s")." [INFO] Downloaded page to string.\n");
 
-			$pagestr = file_get_contents("tmp/channelsd/fetchedpage");
+			$pagestr = file_get_contents("$file_tmp");
 
 			mylog($website, date("d/m/Y H:i:s")." [INFO] Computing basehref.\n");
 
@@ -783,7 +870,7 @@ foreach($level4 as $key => $item)
 		if(trim($link4) == "") continue;
                 mylog($website, date("d/m/Y H:i:s")." INFO Downloading from $link4\n");
 
-		$actualLink4 = download($link4, "tmp/channelsd/fetchedpage"); $link4 = $actualLink4;
+		$actualLink4 = download($link4, "$file_tmp"); $link4 = $actualLink4;
 		
 		mylog($website, date("d/m/Y H:i:s")." [INFO] Download complete from $link4.\n");
 
@@ -809,7 +896,7 @@ foreach($level4 as $key => $item)
 
 				mylog($website, date("d/m/Y H:i:s")." [INFO] It seems interesting.\n");
 
-                                $file = fopen("tmp/channelsd/fetchedpage","r");
+                                $file = fopen("$file_tmp","r");
                                 $fileFragment = fread($file, 1024);
 
 				mylog($website, date("d/m/Y H:i:s")." [INFO]  Let's check how it starts.\n");
@@ -825,7 +912,7 @@ foreach($level4 as $key => $item)
 
 						$channels[] = $link4;
 	                                        $conn = mysqli_connect($dbconn_hostname,$dbconn_username,$dbconn_password,$dbconn_dbname);
-        	                                mysqli_query($conn, "INSERT INTO admin__channels(channel, referer) VALUES ( '$link4', '$key')");
+        	                                mysqli_query($conn, "INSERT INTO $dbtable_channels(channel, referer) VALUES ( '$link4', '$key')");
                 	                        mysqli_close($conn);
 
 						mylog($website, date("d/m/Y H:i:s")." [INFO] It was added.\n");
@@ -862,7 +949,7 @@ foreach($level4 as $key => $item)
 
 							$channels[] = $link4;
 		                                        $conn = mysqli_connect($dbconn_hostname,$dbconn_username,$dbconn_password,$dbconn_dbname);
-                		                        mysqli_query($conn, "INSERT INTO admin__channels(channel, referer) VALUES ( '$link4', '$key')");
+                		                        mysqli_query($conn, "INSERT INTO $dbtable_channels(channel, referer) VALUES ( '$link4', '$key')");
                                 		        mysqli_close($conn);
 							mylog($website, date("d/m/Y H:i:s")." [INFO] It was added.\n");
 
@@ -878,7 +965,7 @@ foreach($level4 as $key => $item)
 
 			mylog($website, date("d/m/Y H:i:s")." [INFO] Mwmory problems?.\n");
 
-                        if(filesize("tmp/channelsd/fetchedpage") > floor(0.8*33554432)-memory_get_usage(true)) continue;
+                        if(filesize("$file_tmp") > floor(0.8*33554432)-memory_get_usage(true)) continue;
  
 			mylog($website, date("d/m/Y H:i:s")." [INFO] No lets compute path.\n");
 
@@ -895,7 +982,7 @@ foreach($level4 as $key => $item)
  
 			mylog($website, date("d/m/Y H:i:s")." [INFO] Downloaded page to string.\n");
 
-			$pagestr = file_get_contents("tmp/channelsd/fetchedpage");
+			$pagestr = file_get_contents("$file_tmp");
 
 			mylog($website, date("d/m/Y H:i:s")." [INFO] Computing basehref.\n");
 
@@ -978,8 +1065,8 @@ $monitorExetime = $end-$start;
 mylog($website, "\n\n>>> EXECUTION TIME >>>\n\n".($end-$start)." s\n\n");
 
 $conn = mysqli_connect($dbconn_hostname,$dbconn_username,$dbconn_password,$dbconn_dbname);
-//mysqli_query($conn, "DELETE FROM admin__channelsd WHERE website = '$canonicWebsiteAddress'");
-mysqli_query($conn, "INSERT INTO admin__channelsd(website, downloads, skipped, channels, exetime, datetime) VALUES ( '$canonicWebsiteAddress', $monitorDownloads, $monitorSkipped, $monitorChannels, $monitorExetime, NOW() )");
+//mysqli_query($conn, "DELETE FROM $dbtable_channelsd WHERE website = '$canonicWebsiteAddress'");
+mysqli_query($conn, "INSERT INTO $dbtable_channelsd(website, downloads, skipped, channels, exetime, datetime) VALUES ( '$canonicWebsiteAddress', $monitorDownloads, $monitorSkipped, $monitorChannels, $monitorExetime, NOW() )");
 mysqli_close($conn);
 
 mylog($website, date("d/m/Y H:i:s")." [INFO] Exiting\n");
@@ -992,7 +1079,7 @@ exit(1);
 
 function cleanLog()
 {
-	exec("rm -f log/channelsd/*");
+	exec("rm -f $folder_log/*");
 }
 
 function clean(&$array, $website, $path)
@@ -1340,11 +1427,11 @@ function clean(&$array, $website, $path)
 function download($url, $path)
 {
 
-exec("rm tmp/channelsd/original_page");
-exec("rm log/channelsd/download");
+exec("rm $file_orig");
+exec("rm $folder_log/download");
 mylog("download", date("d/m/Y H:i:s")." [INFO] Start download from $url\n");
 mylog("download", date("d/m/Y H:i:s")." [INFO] Downloading page through wget for debug purposes.\n");
-exec("wget -O tmp/channelsd/original_page -t 1 -T 60 \"$url\" &>/dev/null || echo \"DOWNLOAD FAILED\"");
+exec("wget -O $file_orig -t 1 -T 60 \"$url\" &>/dev/null || echo \"DOWNLOAD FAILED\"");
 mylog("download", date("d/m/Y H:i:s")." [INFO] Debug download completed.\n");
 
 
@@ -1751,7 +1838,7 @@ function stripQs(&$array, $key)
 
 function mylog($website, $entry)
 {
-	$logfile = fopen("log/channelsd/".preg_replace("/[^A-Za-z0-9]/", "",$website),"a+");
+	$logfile = fopen("$folder_log/".preg_replace("/[^A-Za-z0-9]/", "",$website),"a+");
 	fwrite($logfile, $entry);
 	fclose($logfile);
 }
@@ -1886,7 +1973,7 @@ function dbAddToNewWebsites($item)
 {
 	$conn = mysqli_connect($dbconn_hostname,$dbconn_username,$dbconn_password,$dbconn_dbname);
         $item = mysqli_escape_string($conn, trim($item));
-        mysqli_query($conn, "INSERT INTO engine__new_websites(item) VALUES ('$item')");
+        mysqli_query($conn, "INSERT INTO $dbtable_enw(item) VALUES ('$item')");
         mysqli_close($conn);
 }
 
@@ -1894,7 +1981,7 @@ function dbAddToPages($item)
 {
         $conn = mysqli_connect($dbconn_hostname,$dbconn_username,$dbconn_password,$dbconn_dbname);
         $item = mysqli_escape_string($conn, trim($item));
-        mysqli_query($conn, "INSERT INTO engine__pages(item) VALUES ('$item')");
+        mysqli_query($conn, "INSERT INTO $dbtable_ep(item) VALUES ('$item')");
         mysqli_close($conn);
 }
 
@@ -1902,14 +1989,14 @@ function dbAddToInterestingLinks($item)
 {
         $conn = mysqli_connect($dbconn_hostname,$dbconn_username,$dbconn_password,$dbconn_dbname);
         $item = mysqli_escape_string($conn, trim($item));
-        mysqli_query($conn, "INSERT INTO engine__interesting_links(item) VALUES ('$item')");
+        mysqli_query($conn, "INSERT INTO $dbtable_eil(item) VALUES ('$item')");
         mysqli_close($conn);
 }
 
 function dbAddToPreviousLevel($items)
 {
         $conn = mysqli_connect($dbconn_hostname,$dbconn_username,$dbconn_password,$dbconn_dbname);
-        foreach($items as $item) mysqli_query($conn, "INSERT INTO engine__previous_level(item) VALUES ('".mysqli_escape_string($conn, trim($item))."')");
+        foreach($items as $item) mysqli_query($conn, "INSERT INTO $dbtable_epl(item) VALUES ('".mysqli_escape_string($conn, trim($item))."')");
         mysqli_close($conn);
 }
 
@@ -1918,7 +2005,7 @@ function dbIsInPreviousLevel($item)
 	if(false !== stripos($item, "halleyweb.com")) return false;
         $conn = mysqli_connect($dbconn_hostname,$dbconn_username,$dbconn_password,$dbconn_dbname);
         $item = mysqli_escape_string($conn, trim($item));
-	$response = mysqli_num_rows(mysqli_query($conn, "SELECT * FROM engine__previous_level WHERE item = '$item'"));
+	$response = mysqli_num_rows(mysqli_query($conn, "SELECT * FROM $dbtable_epl WHERE item = '$item'"));
         mysqli_close($conn);
 	return $response;
 }
@@ -1927,7 +2014,7 @@ function dbIsInPages($item)
 {
         $conn = mysqli_connect($dbconn_hostname,$dbconn_username,$dbconn_password,$dbconn_dbname);
         $item = mysqli_escape_string($conn, trim($item));
-        $response = mysqli_num_rows(mysqli_query($conn, "SELECT * FROM engine__pages WHERE item = '$item'"));
+        $response = mysqli_num_rows(mysqli_query($conn, "SELECT * FROM $dbtable_ep WHERE item = '$item'"));
         mysqli_close($conn);
         return $response;
 }
@@ -1936,7 +2023,7 @@ function dbIsInNewWebsites($item)
 {
         $conn = mysqli_connect($dbconn_hostname,$dbconn_username,$dbconn_password,$dbconn_dbname);
         $item = mysqli_escape_string($conn, trim($item));
-	$response = mysqli_num_rows(mysqli_query($conn, "SELECT * FROM engine__new_websites WHERE item = '$item'"));
+	$response = mysqli_num_rows(mysqli_query($conn, "SELECT * FROM $dbtable_enw WHERE item = '$item'"));
         mysqli_close($conn);
         return $response;
 }
@@ -1945,7 +2032,7 @@ function dbIsInterestingLink($item)
 {
         $conn = mysqli_connect($dbconn_hostname,$dbconn_username,$dbconn_password,$dbconn_dbname);
         $item = mysqli_escape_string($conn, trim($item));
-        $response = mysqli_num_rows(mysqli_query($conn, "SELECT * FROM engine__interesting_links WHERE item = '$item'"));
+        $response = mysqli_num_rows(mysqli_query($conn, "SELECT * FROM $dbtable_eil WHERE item = '$item'"));
         mysqli_close($conn);
         return $response;
 }
@@ -1953,8 +2040,8 @@ function dbIsInterestingLink($item)
 function dbInitPreviousLevel()
 {
         $conn = mysqli_connect($dbconn_hostname,$dbconn_username,$dbconn_password,$dbconn_dbname);
-        mysqli_query($conn, "TRUNCATE TABLE engine__previous_level");
-	mysqli_query($conn, "INSERT INTO engine__previous_level(item) SELECT item FROM engine__new_websites");
+        mysqli_query($conn, "TRUNCATE TABLE $dbtable_epl");
+	mysqli_query($conn, "INSERT INTO $dbtable_epl(item) SELECT item FROM $dbtable_enw");
         mysqli_close($conn);
 
 }
@@ -1962,7 +2049,7 @@ function dbInitPreviousLevel()
 function dbInitPages()
 {
         $conn = mysqli_connect($dbconn_hostname,$dbconn_username,$dbconn_password,$dbconn_dbname);
-        mysqli_query($conn, "TRUNCATE TABLE engine__pages");
+        mysqli_query($conn, "TRUNCATE TABLE $dbtable_ep");
         mysqli_close($conn);
 
 }
@@ -1970,21 +2057,21 @@ function dbInitPages()
 function dbInitInterestingLinks()
 {
         $conn = mysqli_connect($dbconn_hostname,$dbconn_username,$dbconn_password,$dbconn_dbname);
-        mysqli_query($conn, "TRUNCATE TABLE engine__interesting_links");
+        mysqli_query($conn, "TRUNCATE TABLE $dbtable_eil");
         mysqli_close($conn);
 }
 
 function dbInitNewWebsites()
 {
         $conn = mysqli_connect($dbconn_hostname,$dbconn_username,$dbconn_password,$dbconn_dbname);
-	mysqli_query($conn, "TRUNCATE TABLE engine__new_websites");
+	mysqli_query($conn, "TRUNCATE TABLE $dbtable_enw");
 	$newWebsites = array();
-        if(file_exists("swebsites")) 
+        if(file_exists("$file_wsl")) 
 	{
-		$newWebsites = explode("\n",file_get_contents("swebsites"));
-		exec("cp swebsites cwebsites");
+		$newWebsites = explode("\n",file_get_contents("$file_wsl"));
+		exec("cp $file_wsl $file_input");
 	}
-	foreach($newWebsites as $website) mysqli_query($conn, "INSERT INTO engine__new_websites(item) VALUES ('".mysqli_escape_string($conn, trim($website))."')");
+	foreach($newWebsites as $website) mysqli_query($conn, "INSERT INTO $dbtable_enw(item) VALUES ('".mysqli_escape_string($conn, trim($website))."')");
         mysqli_close($conn);
 }
 
