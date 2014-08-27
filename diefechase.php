@@ -26,7 +26,7 @@ $folder_log = "log";
 $conn = mysqli_connect($dbconn_hostname,$dbconn_username,$dbconn_password,$dbconn_dbname);
 
 $query__admin_channels = <<<ADMINCHANNELSQUERY
-CREATE TABLE IF NOT EXISTS `admin__channels` (
+CREATE TABLE IF NOT EXISTS `$dbtable_channels` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `channel` varchar(255) NOT NULL,
   `referer` varchar(255) NOT NULL,
@@ -41,7 +41,7 @@ ADMINCHANNELSQUERY;
 mysqli_query($conn, $query__admin_channels);
 
 $query__admin_channelsd = <<<ADMINCHANNELSDQUERY
-CREATE TABLE IF NOT EXISTS `admin__channelsd` (
+CREATE TABLE IF NOT EXISTS `$dbtable_statistics` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `website` varchar(255) NOT NULL,
   `downloads` int(10) unsigned NOT NULL,
@@ -57,7 +57,7 @@ ADMINCHANNELSDQUERY;
 mysqli_query($conn, $query__admin_channelsd);
 
 $query__engine_interesting_links = <<<ENGINEINTERESTINGLINKSQUERY
-CREATE TABLE IF NOT EXISTS `engine__interesting_links` (
+CREATE TABLE IF NOT EXISTS `$dbtable_eil` (
   `item` varchar(255) NOT NULL,
   PRIMARY KEY (`item`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -66,7 +66,7 @@ ENGINEINTERESTINGLINKSQUERY;
 mysqli_query($conn, $query__engine_interesting_links);
 
 $query__engine_new_websites = <<<ENGINENEWWEBSITESQUERY
-CREATE TABLE IF NOT EXISTS `engine__new_websites` (
+CREATE TABLE IF NOT EXISTS `$dbtable_enw` (
   `item` varchar(255) NOT NULL,
   PRIMARY KEY (`item`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -75,7 +75,7 @@ ENGINENEWWEBSITESQUERY;
 mysqli_query($conn, $query__engine_new_websites);
 
 $query__engine_pages = <<<ENGINEPAGESQUERY
-CREATE TABLE IF NOT EXISTS `engine__pages` (
+CREATE TABLE IF NOT EXISTS `$dbtable_ep` (
   `item` varchar(255) NOT NULL,
   PRIMARY KEY (`item`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -84,7 +84,7 @@ ENGINEPAGESQUERY;
 mysqli_query($conn, $query__engine_pages);
 
 $query__previous_level = <<<PREVIOUSLEVELQUERY
-CREATE TABLE IF NOT EXISTS`engine__previous_level` (
+CREATE TABLE IF NOT EXISTS `$dbtable_epl` (
   `item` varchar(255) NOT NULL,
   PRIMARY KEY (`item`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
