@@ -2,24 +2,26 @@
 
 // Config
 
-$dbconn_hostname = "write down database hostname here";
-$dbconn_username = "write down username for database connection here";
-$dbconn_password = "write down password for database connection here";
-$dbconn_dbname = "write down database name here";
+$dbconn_hostname = "localhost";
+$dbconn_username = "dyefechadbuser";
+$dbconn_password = "dyefechadbpwd";
+$dbconn_dbname = "dyefecha";
 
-$dbtable_channels = "admin___channels";
-$dbtable_statistics = "admin___channelsd";
-$dbtable_enw = "engine___new_websites";
-$dbtable_ep = "engine___pages";
-$dbtable_eil = "engine___interesting_links";
-$dbtable_epl = "engine___previous_level";
+$dbtable_channels = "dyefechase__channels";
+$dbtable_statistics = "dyefechase__channelsd";
+$dbtable_enw = "dyefechase__new_websites";
+$dbtable_ep = "dyefechase__pages";
+$dbtable_eil = "dyefechase__interesting_links";
+$dbtable_epl = "dyefechase__previous_level";
 
 $file_wsl = "swebsites";
 $file_input = "cwebsites";
 $file_stopcmd = "stop.cmd";
-$file_tmp = "diefechase.tmp";
-$file_orig = "diefechase.orig";
+$file_tmp = "dyefechase.tmp";
+$file_orig = "dyefechase.orig";
 $folder_log = "log";
+
+global $dbconn_hostname, $dbconn_username, $dbconn_password, $dbconn_dbname, $dbtable_channels, $dbtable_statistics, $dbtable_enw, $dbtable_ep, $dbtable_eil, $dbtable_epl, $file_wsl, $file_input, $file_stopcmd, $file_tmp, $file_orig, $folder_log;
 
 // Setup
 
@@ -109,11 +111,33 @@ if(file_exists("$file_stopcmd"))
 	exit(0);
 }
 
+// If log folder does not already exist, create it.
+
+if(!file_exists($folder_log)) exec("mkdir $folder_log");
+
 // Get URL at the first line of input text file named $file_input located where the PHP script also is.
 // This script will search for RSS, ATOM and RDF channels starting from that URL.
 // If the input text file is not available, execution terminates.
 
-$websitesfile = fopen("$file_input","r");
+if((!file_exists($file_wsl)) && (!file_exists($file_input)))
+{
+        mylog("generic",date("d/m/Y H:i:s")." INFO Input file not found. Daemon killed.\n");
+        exit(1);
+
+}
+ 
+$websitesfile = null;
+if(file_exists($file_input)) 
+{
+	$websitesfile = fopen("$file_input","r");
+}
+else
+{
+	dbInitNewWebsites();
+	$websitesfile = fopen("$file_input","r");
+}
+
+
 $website = trim(fgets($websitesfile));
 if(!$website) 
 {
@@ -1079,11 +1103,18 @@ exit(1);
 
 function cleanLog()
 {
-	exec("rm -f $folder_log/*");
+
+	global $dbconn_hostname, $dbconn_username, $dbconn_password, $dbconn_dbname, $dbtable_channels, $dbtable_statistics, $dbtable_enw, $dbtable_ep, $dbtable_eil, $dbtable_epl, $file_wsl, $file_input, $file_stopcmd, $file_tmp, $file_orig, $folder_log;
+	
+	if(file_exists($folder_log)) exec("rm -f $folder_log/*");
+
 }
 
 function clean(&$array, $website, $path)
 {
+
+	global $dbconn_hostname, $dbconn_username, $dbconn_password, $dbconn_dbname, $dbtable_channels, $dbtable_statistics, $dbtable_enw, $dbtable_ep, $dbtable_eil, $dbtable_epl, $file_wsl, $file_input, $file_stopcmd, $file_tmp, $file_orig, $folder_log;
+
 	$interestingLinkFound = false;
 	$interestingForItsTitle = array();
 	$isFrameURL = array();
@@ -1427,8 +1458,10 @@ function clean(&$array, $website, $path)
 function download($url, $path)
 {
 
-exec("rm $file_orig");
-exec("rm $folder_log/download");
+global $dbconn_hostname, $dbconn_username, $dbconn_password, $dbconn_dbname, $dbtable_channels, $dbtable_statistics, $dbtable_enw, $dbtable_ep, $dbtable_eil, $dbtable_epl, $file_wsl, $file_input, $file_stopcmd, $file_tmp, $file_orig, $folder_log;
+
+if(file_exists($file_orig)) exec("rm $file_orig");
+if(file_exists("$folder_log/download")); exec("rm $folder_log/download");
 mylog("download", date("d/m/Y H:i:s")." [INFO] Start download from $url\n");
 mylog("download", date("d/m/Y H:i:s")." [INFO] Downloading page through wget for debug purposes.\n");
 exec("wget -O $file_orig -t 1 -T 60 \"$url\" &>/dev/null || echo \"DOWNLOAD FAILED\"");
@@ -1818,6 +1851,8 @@ $timeout = 60;
 
 function stripQs(&$array, $key)
 {
+
+global $dbconn_hostname, $dbconn_username, $dbconn_password, $dbconn_dbname, $dbtable_channels, $dbtable_statistics, $dbtable_enw, $dbtable_ep, $dbtable_eil, $dbtable_epl, $file_wsl, $file_input, $file_stopcmd, $file_tmp, $file_orig, $folder_log;
 	
 	if(isset($array[$key]) && trim($array[$key]) != "")
 	{
@@ -1838,6 +1873,9 @@ function stripQs(&$array, $key)
 
 function mylog($website, $entry)
 {
+
+global $dbconn_hostname, $dbconn_username, $dbconn_password, $dbconn_dbname, $dbtable_channels, $dbtable_statistics, $dbtable_enw, $dbtable_ep, $dbtable_eil, $dbtable_epl, $file_wsl, $file_input, $file_stopcmd, $file_tmp, $file_orig, $folder_log;
+
 	$logfile = fopen("$folder_log/".preg_replace("/[^A-Za-z0-9]/", "",$website),"a+");
 	fwrite($logfile, $entry);
 	fclose($logfile);
@@ -1845,6 +1883,8 @@ function mylog($website, $entry)
 
 function brutallyDiscarded($rawLink)
 {	
+
+global $dbconn_hostname, $dbconn_username, $dbconn_password, $dbconn_dbname, $dbtable_channels, $dbtable_statistics, $dbtable_enw, $dbtable_ep, $dbtable_eil, $dbtable_epl, $file_wsl, $file_input, $file_stopcmd, $file_tmp, $file_orig, $folder_log;
 
 	if(false !== stripos($rawLink, "http://www.sitiarcheologici.palazzochigi.it/")) return true;
 	if(false !== stripos($rawLink, "http://www.adobe.com/")) return true;
@@ -1858,6 +1898,9 @@ function brutallyDiscarded($rawLink)
 }
 
 function uncompress($srcName, $dstName) {
+
+global $dbconn_hostname, $dbconn_username, $dbconn_password, $dbconn_dbname, $dbtable_channels, $dbtable_statistics, $dbtable_enw, $dbtable_ep, $dbtable_eil, $dbtable_epl, $file_wsl, $file_input, $file_stopcmd, $file_tmp, $file_orig, $folder_log;
+
     $sfp = gzopen($srcName, "rb");
     if(!$sfp) return false;
     $fp = fopen($dstName, "w");
@@ -1872,6 +1915,8 @@ function uncompress($srcName, $dstName) {
 
 function seemsWebPageToBeFollowed($item)
 {
+
+global $dbconn_hostname, $dbconn_username, $dbconn_password, $dbconn_dbname, $dbtable_channels, $dbtable_statistics, $dbtable_enw, $dbtable_ep, $dbtable_eil, $dbtable_epl, $file_wsl, $file_input, $file_stopcmd, $file_tmp, $file_orig, $folder_log;
 
 			if
 			(
@@ -1966,11 +2011,17 @@ function seemsWebPageToBeFollowed($item)
 
 function trimAll(&$item, $key) 
 {
+
+global $dbconn_hostname, $dbconn_username, $dbconn_password, $dbconn_dbname, $dbtable_channels, $dbtable_statistics, $dbtable_enw, $dbtable_ep, $dbtable_eil, $dbtable_epl, $file_wsl, $file_input, $file_stopcmd, $file_tmp, $file_orig, $folder_log;
+
 	$item = trim($item);
 }
 
 function dbAddToNewWebsites($item)
 {
+
+global $dbconn_hostname, $dbconn_username, $dbconn_password, $dbconn_dbname, $dbtable_channels, $dbtable_statistics, $dbtable_enw, $dbtable_ep, $dbtable_eil, $dbtable_epl, $file_wsl, $file_input, $file_stopcmd, $file_tmp, $file_orig, $folder_log;
+
 	$conn = mysqli_connect($dbconn_hostname,$dbconn_username,$dbconn_password,$dbconn_dbname);
         $item = mysqli_escape_string($conn, trim($item));
         mysqli_query($conn, "INSERT INTO $dbtable_enw(item) VALUES ('$item')");
@@ -1979,6 +2030,9 @@ function dbAddToNewWebsites($item)
 
 function dbAddToPages($item)
 {
+
+global $dbconn_hostname, $dbconn_username, $dbconn_password, $dbconn_dbname, $dbtable_channels, $dbtable_statistics, $dbtable_enw, $dbtable_ep, $dbtable_eil, $dbtable_epl, $file_wsl, $file_input, $file_stopcmd, $file_tmp, $file_orig, $folder_log;
+
         $conn = mysqli_connect($dbconn_hostname,$dbconn_username,$dbconn_password,$dbconn_dbname);
         $item = mysqli_escape_string($conn, trim($item));
         mysqli_query($conn, "INSERT INTO $dbtable_ep(item) VALUES ('$item')");
@@ -1987,6 +2041,9 @@ function dbAddToPages($item)
 
 function dbAddToInterestingLinks($item)
 {
+
+global $dbconn_hostname, $dbconn_username, $dbconn_password, $dbconn_dbname, $dbtable_channels, $dbtable_statistics, $dbtable_enw, $dbtable_ep, $dbtable_eil, $dbtable_epl, $file_wsl, $file_input, $file_stopcmd, $file_tmp, $file_orig, $folder_log;
+
         $conn = mysqli_connect($dbconn_hostname,$dbconn_username,$dbconn_password,$dbconn_dbname);
         $item = mysqli_escape_string($conn, trim($item));
         mysqli_query($conn, "INSERT INTO $dbtable_eil(item) VALUES ('$item')");
@@ -1995,6 +2052,9 @@ function dbAddToInterestingLinks($item)
 
 function dbAddToPreviousLevel($items)
 {
+
+global $dbconn_hostname, $dbconn_username, $dbconn_password, $dbconn_dbname, $dbtable_channels, $dbtable_statistics, $dbtable_enw, $dbtable_ep, $dbtable_eil, $dbtable_epl, $file_wsl, $file_input, $file_stopcmd, $file_tmp, $file_orig, $folder_log;
+
         $conn = mysqli_connect($dbconn_hostname,$dbconn_username,$dbconn_password,$dbconn_dbname);
         foreach($items as $item) mysqli_query($conn, "INSERT INTO $dbtable_epl(item) VALUES ('".mysqli_escape_string($conn, trim($item))."')");
         mysqli_close($conn);
@@ -2002,6 +2062,9 @@ function dbAddToPreviousLevel($items)
 
 function dbIsInPreviousLevel($item)
 {
+
+global $dbconn_hostname, $dbconn_username, $dbconn_password, $dbconn_dbname, $dbtable_channels, $dbtable_statistics, $dbtable_enw, $dbtable_ep, $dbtable_eil, $dbtable_epl, $file_wsl, $file_input, $file_stopcmd, $file_tmp, $file_orig, $folder_log;
+
 	if(false !== stripos($item, "halleyweb.com")) return false;
         $conn = mysqli_connect($dbconn_hostname,$dbconn_username,$dbconn_password,$dbconn_dbname);
         $item = mysqli_escape_string($conn, trim($item));
@@ -2012,6 +2075,9 @@ function dbIsInPreviousLevel($item)
 
 function dbIsInPages($item)
 {
+
+global $dbconn_hostname, $dbconn_username, $dbconn_password, $dbconn_dbname, $dbtable_channels, $dbtable_statistics, $dbtable_enw, $dbtable_ep, $dbtable_eil, $dbtable_epl, $file_wsl, $file_input, $file_stopcmd, $file_tmp, $file_orig, $folder_log;
+
         $conn = mysqli_connect($dbconn_hostname,$dbconn_username,$dbconn_password,$dbconn_dbname);
         $item = mysqli_escape_string($conn, trim($item));
         $response = mysqli_num_rows(mysqli_query($conn, "SELECT * FROM $dbtable_ep WHERE item = '$item'"));
@@ -2021,6 +2087,9 @@ function dbIsInPages($item)
 
 function dbIsInNewWebsites($item)
 {
+
+global $dbconn_hostname, $dbconn_username, $dbconn_password, $dbconn_dbname, $dbtable_channels, $dbtable_statistics, $dbtable_enw, $dbtable_ep, $dbtable_eil, $dbtable_epl, $file_wsl, $file_input, $file_stopcmd, $file_tmp, $file_orig, $folder_log;
+
         $conn = mysqli_connect($dbconn_hostname,$dbconn_username,$dbconn_password,$dbconn_dbname);
         $item = mysqli_escape_string($conn, trim($item));
 	$response = mysqli_num_rows(mysqli_query($conn, "SELECT * FROM $dbtable_enw WHERE item = '$item'"));
@@ -2030,6 +2099,9 @@ function dbIsInNewWebsites($item)
 
 function dbIsInterestingLink($item)
 {
+
+global $dbconn_hostname, $dbconn_username, $dbconn_password, $dbconn_dbname, $dbtable_channels, $dbtable_statistics, $dbtable_enw, $dbtable_ep, $dbtable_eil, $dbtable_epl, $file_wsl, $file_input, $file_stopcmd, $file_tmp, $file_orig, $folder_log;
+
         $conn = mysqli_connect($dbconn_hostname,$dbconn_username,$dbconn_password,$dbconn_dbname);
         $item = mysqli_escape_string($conn, trim($item));
         $response = mysqli_num_rows(mysqli_query($conn, "SELECT * FROM $dbtable_eil WHERE item = '$item'"));
@@ -2039,6 +2111,9 @@ function dbIsInterestingLink($item)
 
 function dbInitPreviousLevel()
 {
+
+global $dbconn_hostname, $dbconn_username, $dbconn_password, $dbconn_dbname, $dbtable_channels, $dbtable_statistics, $dbtable_enw, $dbtable_ep, $dbtable_eil, $dbtable_epl, $file_wsl, $file_input, $file_stopcmd, $file_tmp, $file_orig, $folder_log;
+
         $conn = mysqli_connect($dbconn_hostname,$dbconn_username,$dbconn_password,$dbconn_dbname);
         mysqli_query($conn, "TRUNCATE TABLE $dbtable_epl");
 	mysqli_query($conn, "INSERT INTO $dbtable_epl(item) SELECT item FROM $dbtable_enw");
@@ -2048,6 +2123,9 @@ function dbInitPreviousLevel()
 
 function dbInitPages()
 {
+
+global $dbconn_hostname, $dbconn_username, $dbconn_password, $dbconn_dbname, $dbtable_channels, $dbtable_statistics, $dbtable_enw, $dbtable_ep, $dbtable_eil, $dbtable_epl, $file_wsl, $file_input, $file_stopcmd, $file_tmp, $file_orig, $folder_log;
+
         $conn = mysqli_connect($dbconn_hostname,$dbconn_username,$dbconn_password,$dbconn_dbname);
         mysqli_query($conn, "TRUNCATE TABLE $dbtable_ep");
         mysqli_close($conn);
@@ -2056,6 +2134,9 @@ function dbInitPages()
 
 function dbInitInterestingLinks()
 {
+
+global $dbconn_hostname, $dbconn_username, $dbconn_password, $dbconn_dbname, $dbtable_channels, $dbtable_statistics, $dbtable_enw, $dbtable_ep, $dbtable_eil, $dbtable_epl, $file_wsl, $file_input, $file_stopcmd, $file_tmp, $file_orig, $folder_log;
+
         $conn = mysqli_connect($dbconn_hostname,$dbconn_username,$dbconn_password,$dbconn_dbname);
         mysqli_query($conn, "TRUNCATE TABLE $dbtable_eil");
         mysqli_close($conn);
@@ -2063,6 +2144,9 @@ function dbInitInterestingLinks()
 
 function dbInitNewWebsites()
 {
+
+global $dbconn_hostname, $dbconn_username, $dbconn_password, $dbconn_dbname, $dbtable_channels, $dbtable_statistics, $dbtable_enw, $dbtable_ep, $dbtable_eil, $dbtable_epl, $file_wsl, $file_input, $file_stopcmd, $file_tmp, $file_orig, $folder_log;
+
         $conn = mysqli_connect($dbconn_hostname,$dbconn_username,$dbconn_password,$dbconn_dbname);
 	mysqli_query($conn, "TRUNCATE TABLE $dbtable_enw");
 	$newWebsites = array();
@@ -2077,6 +2161,9 @@ function dbInitNewWebsites()
 
 function declaredBaseHref($pagestr)
 {
+
+global $dbconn_hostname, $dbconn_username, $dbconn_password, $dbconn_dbname, $dbtable_channels, $dbtable_statistics, $dbtable_enw, $dbtable_ep, $dbtable_eil, $dbtable_epl, $file_wsl, $file_input, $file_stopcmd, $file_tmp, $file_orig, $folder_log;
+
                 if(false !== stripos($pagestr, "<base "))
                 {
                         $basehref = substr($pagestr, stripos($pagestr,"<base "), stripos($pagestr, ">", stripos($pagestr,"<base "))-stripos($pagestr,"<base "));
@@ -2104,3 +2191,5 @@ function declaredBaseHref($pagestr)
 return false;
 }
 ?>
+
+
