@@ -25,7 +25,7 @@ For executing the PHP script multiple times automatically, you could launch the 
 
 Starting point software is tested under UNIX environment, using a MySql database. In effect, starting point software is effectively used at now by Synd.it, an Italian project where RSS, ATOM and RDF channels are discovered (Dyefechase), and parsed to get news made available to common users via a PHP website. Channel parsing code, and presentation website, are not part of this project.
 
-Latest release of Dyefechase has not been tested yet.
+Latest release of Dyefechase have been also tested under UNIX environment using a MySql database.
 
 Quick start
 -----------
